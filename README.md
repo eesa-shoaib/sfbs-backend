@@ -1,98 +1,30 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Sports Facility Booking Platform — V1 Blueprint
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+This folder is the working blueprint for Version 1 of the marketplace. Read in this order:
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+1. `01-v1-scope.md` — what's in V1, what's deferred, what's built now but dormant
+2. `02-tech-stack.md` — chosen technologies and why
+3. `03-database-schema.md` — full schema, including tables for deferred features
+4. `04-rbac-permissions.md` — roles, permission taxonomy, custom roles, staff invite flow
+5. `05-auth-token-flow.md` — JWT issuance, refresh rotation, revocation
+6. `06-architecture-modules.md` — modular monolith boundaries, RabbitMQ + outbox pattern
+7. `07-availability-booking-engine.md` — minimal slot-locking design for V1
+8. `08-extensibility-roadmap.md` — how each deferred feature slots in later without a rewrite
+9. `09-database-migrations-seeding.md` — migration, bootstrap, and reference-data rules
+10. `10-mermaid-diagrams.md` — backend architecture and database diagrams
+11. `11-repo-setup.md` — repository bootstrap and local development setup
 
-## Description
+## Core decisions locked in for V1
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+- **Marketplace model**: 3rd-party facility owners onboard onto the platform (not owner-operated).
+- **Platforms**: mobile (Flutter) + web (Next.js consumer, React SPA for owner/admin dashboard), both from day one.
+- **Roles**: one role per user account. Multi-user-per-facility is IN v1 (owner + staff, staff scoped per facility/resource).
+- **Booking scope (Option B)**: real in-app booking + payment, but no recurring bookings, no dynamic pricing, no resource partitioning, no buffer-time config in V1.
+- **Messaging**: RabbitMQ from day one, with a transactional outbox pattern for reliability.
+- **Database**: PostgreSQL, schema and migration process built now — including foundations for deferred features (recurring bookings, dynamic pricing, reviews, payouts) to minimize future breaking migrations.
 
-## Project setup
+## Repository status
 
-```bash
-$ npm install
-```
-
-## Compile and run the project
-
-```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
-```
-
-## Run tests
-
-```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
-```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+This repository currently contains the V1 blueprint and local infrastructure foundation. Application services are not scaffolded yet. Start with `11-repo-setup.md` before adding NestJS, web, dashboard, or Flutter application code.
+- **Booking and money correctness**: holds are owned and expiring; provider webhooks and client writes are idempotent; confirmed bookings retain immutable price, currency, commission, and tax snapshots.
+- **Record lifecycle**: operational entities are soft-deleted or disabled; booking, money, and audit history is immutable. No cascade deletion of historical records.
