@@ -14,6 +14,7 @@ This folder is the working blueprint for Version 1 of the marketplace. Read in t
 10. `10-mermaid-diagrams.md` — backend architecture and database diagrams
 11. `11-repo-setup.md` — repository bootstrap and local development setup
 12. `12-api-design.md` — REST conventions, versioning, envelope, error codes, rate limiting, pagination, idempotency, CORS, webhooks, OpenAPI strategy
+13. `13-client-apps.md` — client applications, user types, and per-app permission scope
 
 ## Core decisions locked in for V1
 
