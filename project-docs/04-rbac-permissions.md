@@ -22,6 +22,7 @@ Format: `domain:action`, lowercase, colon-separated.
 | Role | `role:edit_custom` | org | No |
 | Facility | `facility:create` | org | No |
 | Facility | `facility:edit_details` | facility | No |
+| Facility | `facility:edit_payment_config` | facility | No |
 | Facility | `facility:edit_pricing` | facility | No |
 | Facility | `facility:edit_hours` | facility | No |
 | Facility | `facility:deactivate` | facility | No |
@@ -51,7 +52,18 @@ Format: `domain:action`, lowercase, colon-separated.
 Notes:
 - `self`-scoped permissions don't use `user_role_assignments` at all — enforcement is a direct `record.user_id == requester.id` check, not a scope lookup.
 - `booking:cancel_any` is deliberately separate from `booking:cancel_own` so staff overrides can bypass the customer cancellation-policy window without contaminating the customer-facing logic.
+- `facility:edit_payment_config` is required for toggling `accepted_payment_methods` and `cash_booking_policy` at the facility level. This is part of the cash-heavy market support path, not a payment provider credential change.
+- `booking:mark_noshow` is part of the facility-facing staff flow for grace-period enforcement. It is not a customer self-service permission.
 - Never implement wildcard permission matching (`facility:*`) in the actual authorization check — only as a UI convenience that inserts explicit rows. Wildcards in the check path are a common privilege-escalation bug source.
+
+## Cash-booking policy controls
+
+Cash payments are not a separate auth domain; they are an extension of facility-scoped authorization and booking enforcement:
+
+- owner/staff with `facility:edit_payment_config` may set `accepted_payment_methods` and `cash_booking_policy`.
+- owner/staff with `booking:mark_noshow` may trigger the no-show workflow after `in_grace` expiry.
+- `booking:create` remains user self-service; the backend still enforces the facility's payment policy before confirmation.
+- `payment:make` is only valid for `online` or `cash_fee` booking paths; a `cash_free` booking never creates a platform-side payment capture from the customer.
 
 ## Staff onboarding flow
 

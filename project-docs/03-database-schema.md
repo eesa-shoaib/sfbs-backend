@@ -204,6 +204,136 @@ pricing_rules
   valid_to        timestamptz nullable  -- (V1: one open-ended flat row per resource)
 ```
 
+## Addendum: Cash Payments, Commission & Booking-State Additions
+
+This addendum is additive to the schema above. It captures the cash-heavy Pakistan facility-market flow and the booking lifecycle gaps that appear when the platform never sees the underlying money.
+
+### Facility-level payment configuration
+
+```
+facilities
+  accepted_payment_methods   text[]   -- 'online', 'cash'
+  cash_booking_policy        text     -- 'not_applicable' | 'booking_fee' | 'free_hold'
+```
+
+Owner sets this at onboarding/edit time. `cash_booking_policy` only matters when `'cash'` is in `accepted_payment_methods`.
+
+### Booking fee (anti-abuse + upfront commission for cash bookings)
+
+For facilities on `booking_fee` policy: customer pays a small non-refundable fee online at booking time; the remainder is paid in cash at the facility. This fee doubles as commission collection for cash bookings, since the platform can't otherwise touch that money.
+
+```
+bookings
+  payment_method    text   -- 'online' | 'cash_fee' | 'cash_free'
+  booking_fee_amount numeric(12,2), nullable
+```
+
+Fee amount is computed from the resolved commission rate at booking time — not a manually chosen flat number.
+
+For facilities on `free_hold` policy: no fee, no online payment step. Anti-abuse relies on `users.no_show_count` and post-facto commission settlement.
+
+```
+users
+  no_show_count   int, default 0
+```
+
+Escalating restriction rules (e.g. limit future bookings after N no-shows) are a policy decision to define before launch, enforced in application logic reading this counter.
+
+### Booking states — grace period / check-in
+
+Current state machine had no defined trigger for no-show detection. Fix:
+
+```
+bookings.status: pending_payment | confirmed | in_grace | completed | cancelled | no_show | refunded
+bookings.arrived_at   timestamptz, nullable
+
+facilities.grace_period_minutes   int   -- e.g. 15
+```
+
+Transition flow:
+1. `confirmed` → at slot start time, scheduled job flips to `in_grace`.
+2. If `arrived_at` set (staff check-in or customer self-check-in) within grace window → `completed`.
+3. If grace window expires with `arrived_at` still null → `no_show`, increment `users.no_show_count`.
+
+Commission ledger entries for cash-free bookings are posted on transition to `completed`, never at booking creation — so a cancelled or no-show booking never generates commission owed on something that didn't happen.
+
+### Commission rate configuration (versioned, resolvable, snapshotted)
+
+Same pattern as `pricing_rules` — a real config table, resolved and snapshotted at transaction time so a later rate change never rewrites history.
+
+```
+commission_rates
+  id            uuid PK
+  scope_type    text        -- 'platform' | 'organization' | 'facility'
+  scope_id      uuid, nullable   -- null when scope_type = 'platform'
+  rate_type     text        -- 'percentage' | 'flat'
+  rate_value    numeric(6,4)
+  valid_from    timestamptz
+  valid_to      timestamptz, nullable
+```
+
+Resolution order at booking time: facility override → organization override → platform default. First match wins.
+
+Snapshotting: the resolved rate's ID is written onto the transaction record at the moment it's applied — never re-resolved later.
+
+```
+payments.commission_rate_id        uuid FK -> commission_rates.id
+ledger_entries.commission_rate_id  uuid FK -> commission_rates.id
+```
+
+`booking_fee_amount` = `resolved_price × resolved_commission_rate` for percentage-based facilities, or the flat value directly if `rate_type = 'flat'` — computed once at booking time.
+
+### Commission ledger — entries in the existing double-entry ledger, not a separate table
+
+Do not build a standalone `commission_ledger` table — it would let the ledger and commission bookkeeping disagree with each other. Commission is just another set of entries in the single `ledger_entries` table already defined for the double-entry model.
+
+```
+ledger_entries
+  id                    uuid PK
+  account               text   -- 'customer_clearing' | 'platform_commission_revenue' |
+                                -- 'owner_payable' | 'platform_cash' | 'commission_receivable'
+  direction             text   -- 'debit' | 'credit'
+  amount                numeric(12,2)
+  currency              text
+  booking_id            uuid FK, nullable
+  payment_id            uuid FK, nullable
+  refund_id             uuid FK, nullable
+  organization_id       uuid FK, nullable
+  commission_rate_id    uuid FK -> commission_rates.id
+  reversal_of_entry_id  uuid FK, nullable   -- immutable reversals, never edit a posted entry
+  created_at            timestamptz
+```
+
+Entry pattern per payment path:
+
+| Path | Entries posted |
+|---|---|
+| Online payment | Debit `customer_clearing` for full amount; credit split between `platform_commission_revenue` and `owner_payable` |
+| Cash + booking fee | Debit `customer_clearing` for fee only; credit `platform_commission_revenue`. No receivable — the fee is the commission. |
+| Cash + free hold | No cash-side entry (platform never touched money). Debit `commission_receivable`, credit `platform_commission_revenue`. Stays open until settled. |
+
+### Commission settlement (cash + free-hold facilities)
+
+Since the platform never touches money on `free_hold` bookings, commission relies on periodic settlement rather than automatic split:
+
+```
+commission_settlements
+  id               uuid PK
+  organization_id  uuid FK -> organizations.id
+  period_start     date
+  period_end       date
+  amount_due       numeric(12,2)
+  status           text   -- 'pending' | 'paid' | 'overdue'
+  settled_at       timestamptz, nullable
+  settlement_method text  -- 'bank_transfer' | 'jazzcash' | 'easypaisa' | 'manual'
+```
+
+On settlement, post a clearing entry against the open `commission_receivable` balance for that organization.
+
+### Enforcement note (trust, not just schema)
+
+Cash-free bookings rely on the owner accurately marking bookings `completed`. No schema fully solves this — mitigations are policy, not code: tie non-payment of settled commission to listing visibility/suspension, and accept some leakage as a known cost of supporting the cash-heavy segment of the market.
+
 ## Payments
 
 ```
